@@ -13,9 +13,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install CPU-only PyTorch first (keeps image compact ~700MB instead of ~5GB CUDA)
+# Install CPU-only PyTorch first (keeps image compact instead of ~5GB CUDA)
 RUN pip install --upgrade pip && \
-    pip install --index-url https://download.pytorch.org/whl/cpu torch==2.5.1
+    pip install --index-url https://download.pytorch.org/whl/cpu torch
 
 # Install application dependencies
 COPY requirements.txt .

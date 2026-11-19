@@ -29,7 +29,7 @@ jobs:
       - name: Install CPU PyTorch & Dev Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install --index-url https://download.pytorch.org/whl/cpu torch==2.5.1
+          pip install --index-url https://download.pytorch.org/whl/cpu torch
           grep -v "^torch" requirements.txt > /tmp/req_notorch.txt
           pip install -r /tmp/req_notorch.txt pytest httpx ruff
 
