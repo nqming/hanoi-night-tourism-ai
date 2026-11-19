@@ -138,7 +138,6 @@ class ContrastiveRecommender:
 
                 v = self._poi_embeddings[p["id"]]
                 raw_sim = float(np.dot(u, v))
-                match_score = max(0.0, min(1.0, (raw_sim + 0.35) / 1.15))
 
                 reasons: List[str] = []
                 adj_score = raw_sim
