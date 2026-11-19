@@ -34,7 +34,7 @@ jobs:
           pip install -r /tmp/req_notorch.txt pytest httpx ruff
 
       - name: Lint code with Ruff
-        run: ruff check data ml backend tests --ignore E501,E402
+        run: ruff check data ml backend tests --select E,F --ignore E501,E402
 
       - name: Run Unit & FastAPI Integration Tests
         run: pytest -v tests/test_suite.py
