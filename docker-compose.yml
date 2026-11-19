@@ -1,0 +1,21 @@
+services:
+  hanoi-night-tourism-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: hanoi-night-tourism-ai:latest
+    container_name: hanoi-night-tourism-ai
+    ports:
+      - "8000:8000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    volumes:
+      # Persist Admin CRUD changes made to Hanoi POI database
+      - ./data/processed:/app/data/processed
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
