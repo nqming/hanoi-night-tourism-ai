@@ -1,27 +1,27 @@
 {
-  "crawled_at_utc": "2026-11-19T06:17:29.235210+00:00",
-  "total_pois": 160,
-  "curated_flagship_pois": 40,
-  "raw_osm_elements_fetched": 600,
-  "osm_pois_added": 120,
-  "wikipedia_enriched_pois": 8,
-  "night_economy_pois": 138,
-  "daytime_only_pois": 22,
+  "crawled_at_utc": "2026-11-19T07:48:10.410469+00:00",
+  "total_pois": 255,
+  "curated_flagship_pois": 60,
+  "raw_osm_elements_fetched": 950,
+  "osm_pois_added": 195,
+  "wikipedia_enriched_pois": 12,
+  "night_economy_pois": 228,
+  "daytime_only_pois": 27,
   "by_category": {
-    "heritage_night": 32,
-    "culture_art": 13,
-    "walking_market": 19,
-    "nightlife_cafe": 42,
-    "night_food": 44,
-    "scenic_view": 5,
+    "heritage_night": 57,
+    "culture_art": 26,
+    "walking_market": 20,
+    "nightlife_cafe": 64,
+    "night_food": 74,
+    "scenic_view": 9,
     "daytime_heritage": 5
   },
   "by_district": {
-    "Hoàn Kiếm": 72,
-    "Ba Đình": 23,
-    "Đống Đa": 20,
-    "Tây Hồ": 18,
-    "Hai Bà Trưng": 12,
-    "Cầu Giấy": 15
+    "Hoàn Kiếm": 110,
+    "Ba Đình": 38,
+    "Đống Đa": 30,
+    "Tây Hồ": 22,
+    "Hai Bà Trưng": 21,
+    "Cầu Giấy": 34
   }
 }

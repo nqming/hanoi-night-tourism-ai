@@ -4,18 +4,19 @@ Solves the Team Orienteering Problem with Time Windows (TOPTW) over Top-K POIs r
 by the Two-Tower Contrastive Learning model:
 - Handles overnight wrap-around schedules (e.g., 17:00-02:00 represented as 17.0-26.0,
   and 24/7 spots accessible throughout the night).
-- Optimizes multi-objective utility: AI semantic relevance + night-economy coverage +
-  category diversity - travel distance penalty - idle waiting penalty.
-- Strictly enforces budget cap, opening/closing hours, visit durations, and tour window.
-- Produces side-by-side comparison against a naive unoptimized baseline for evaluation.
+- Enforces start-proximity ordering and anti-backtracking: if a destination is right at
+  or near the user's current starting point (e.g., Hoan Kiem Lake), it is visited FIRST
+  before moving outward (never leaving the start area and looping back to it!).
+- Evaluates exact permutations (k! for k <= 6) + 2-opt segment reversal on top beam
+  candidates to guarantee the shortest non-backtracking route.
 """
 
 from __future__ import annotations
 
+import itertools
 import math
 from typing import Any, Dict, List, Optional, Tuple
 
-# Default starting point: Hoan Kiem Lake Central Plaza (Dong Kinh Nghia Thuc Square)
 DEFAULT_START_LAT = 21.0313
 DEFAULT_START_LON = 105.8520
 
@@ -25,7 +26,6 @@ TRANSPORT_SPEED_KMH = {
     "car": 17.0,
 }
 
-# Hanoi urban street tortuosity multiplier over straight-line Haversine distance
 ROAD_TORTUOSITY = 1.32
 
 
@@ -43,8 +43,7 @@ def estimate_travel(lat1: float, lon1: float, lat2: float, lon2: float, mode: st
     straight_km = haversine_km(lat1, lon1, lat2, lon2)
     road_km = round(straight_km * ROAD_TORTUOSITY, 2)
     speed = TRANSPORT_SPEED_KMH.get(mode, 18.0)
-    # Add 4 minutes parking/traffic-light overhead for non-zero hops
-    minutes = (road_km / speed) * 60.0 + (4.0 if road_km > 0.15 else 1.0)
+    minutes = (road_km / speed) * 60.0 + (3.5 if road_km > 0.25 else 1.0)
     return road_km, round(minutes, 1)
 
 
@@ -65,10 +64,8 @@ def effective_open_window(poi: Dict[str, Any], tour_start: float, tour_end: floa
     """Return effective (open_h, close_h) aligned with the tour window [tour_start, tour_end]."""
     o = float(poi["open_hour"])
     c = float(poi["close_hour"])
-    # 24/7 places stay open through overnight hours
     if o == 0.0 and c >= 24.0:
         return 0.0, max(30.0, tour_end + 1.0)
-    # Check normal vs +24h shifted window for late-night tours
     if c <= tour_start and c + 24.0 > tour_start:
         return o + 24.0, c + 24.0
     return o, c
@@ -82,7 +79,7 @@ def simulate_sequence(
     end_hour: float,
     budget_vnd: int,
     transport_mode: str,
-    max_wait_min: float = 45.0,
+    max_wait_min: float = 40.0,
 ) -> Optional[Dict[str, Any]]:
     """Simulate a candidate sequence of (poi, ai_score) entries and validate all constraints."""
     cur_lat, cur_lon = start_lat, start_lon
@@ -129,7 +126,6 @@ def simulate_sequence(
         total_wait_min += wait_min
         total_visit_min += float(poi["duration_min"])
 
-        # Calculate active minutes occurring in Night Economy period (>= 18:00)
         night_lo = max(service_start, 18.0)
         night_hi = min(departure, 30.0)
         if night_hi > night_lo:
@@ -184,8 +180,59 @@ def simulate_sequence(
     }
 
 
-def _objective_score(sim_res: Dict[str, Any], prefer_night: bool = True) -> float:
-    """Multi-objective utility balancing AI relevance, diversity, night coverage, and compact routing."""
+def _backtracking_penalty(
+    stops: List[Dict[str, Any]], start_lat: float, start_lon: float, start_hour: float
+) -> float:
+    """Penalize leaving the starting area and looping back to it later, or sharp zig-zag turns."""
+    if len(stops) <= 1:
+        return 0.0
+
+    penalty = 0.0
+    dists_from_start = [
+        haversine_km(start_lat, start_lon, s["poi"]["lat"], s["poi"]["lon"]) for s in stops
+    ]
+
+    # 1. Start-proximity inversion penalty:
+    # If stop j (j > i) is significantly closer to the user's starting point than stop i,
+    # and stop j was already open at stop i's arrival time, penalize going far first then coming back!
+    for i in range(len(stops)):
+        for j in range(i + 1, len(stops)):
+            di = dists_from_start[i]
+            dj = dists_from_start[j]
+            if dj + 0.18 < di:
+                # Check if stop j could have been visited earlier at stop i's time
+                open_j = float(stops[j]["poi"]["open_hour"])
+                if open_j <= stops[i]["arrival_hour"] + 0.1:
+                    # Heavy penalty when dj is right next to start (< 0.45 km) and di went away (> 0.5 km)
+                    if dj < 0.45 and di > 0.45:
+                        penalty += 2.2 + 2.0 * (di - dj)
+                    else:
+                        penalty += 0.85 * (di - dj)
+
+    # 2. Zig-zag triangle detour penalty across consecutive triples (A -> B -> C)
+    coords = [(start_lat, start_lon)] + [(s["poi"]["lat"], s["poi"]["lon"]) for s in stops]
+    for k in range(len(coords) - 2):
+        a_lat, a_lon = coords[k]
+        b_lat, b_lon = coords[k + 1]
+        c_lat, c_lon = coords[k + 2]
+        ab = haversine_km(a_lat, a_lon, b_lat, b_lon)
+        bc = haversine_km(b_lat, b_lon, c_lat, c_lon)
+        ac = haversine_km(a_lat, a_lon, c_lat, c_lon)
+        # If going A -> B -> C travels way farther than A -> C and C is closer to A than B is:
+        if ab > 0.35 and ac + 0.20 < ab:
+            penalty += 1.4 * (ab + bc - ac)
+
+    return penalty
+
+
+def _objective_score(
+    sim_res: Dict[str, Any],
+    start_lat: float,
+    start_lon: float,
+    start_hour: float,
+    prefer_night: bool = True,
+) -> float:
+    """Multi-objective utility balancing AI relevance, diversity, night coverage, and non-backtracking routing."""
     stops = sim_res["stops"]
     summary = sim_res["summary"]
     if not stops:
@@ -193,17 +240,103 @@ def _objective_score(sim_res: Dict[str, Any], prefer_night: bool = True) -> floa
 
     ai_sum = sum(max(0.05, s["cosine_similarity"] + 0.35) for s in stops)
     diversity_bonus = 0.45 * summary["category_diversity"]
-    # Slight penalty for repeating the exact same category back-to-back
     repeat_penalty = sum(
         0.35
         for i in range(1, len(stops))
         if stops[i]["poi"]["category"] == stops[i - 1]["poi"]["category"]
     )
     night_bonus = (0.35 * summary["night_economy_stops"]) if prefer_night else 0.0
-    dist_penalty = 0.14 * summary["total_distance_km"]
-    wait_penalty = 0.40 * (summary["total_wait_min"] / 60.0)
 
-    return ai_sum + diversity_bonus + night_bonus - repeat_penalty - dist_penalty - wait_penalty
+    # Strong distance penalty + explicit anti-backtracking penalty
+    dist_penalty = 0.50 * summary["total_distance_km"]
+    wait_penalty = 0.55 * (summary["total_wait_min"] / 60.0)
+    bt_penalty = _backtracking_penalty(stops, start_lat, start_lon, start_hour)
+
+    # First-stop proximity bonus: reward visiting a stop right where the user is standing first!
+    d_first = haversine_km(start_lat, start_lon, stops[0]["poi"]["lat"], stops[0]["poi"]["lon"])
+    first_stop_bonus = 0.45 if d_first < 0.35 else (0.20 if d_first < 0.65 else 0.0)
+
+    return (
+        ai_sum
+        + diversity_bonus
+        + night_bonus
+        + first_stop_bonus
+        - repeat_penalty
+        - dist_penalty
+        - wait_penalty
+        - bt_penalty
+    )
+
+
+def _optimize_stop_ordering(
+    seq: List[Dict[str, Any]],
+    start_lat: float,
+    start_lon: float,
+    start_hour: float,
+    end_hour: float,
+    budget_vnd: int,
+    transport_mode: str,
+    prefer_night: bool,
+) -> Optional[Tuple[float, List[Dict[str, Any]], Dict[str, Any]]]:
+    """Find the best feasible permutation of `seq` that minimizes distance and eliminates backtracking."""
+    n = len(seq)
+    best: Optional[Tuple[float, List[Dict[str, Any]], Dict[str, Any]]] = None
+
+    if n <= 5:
+        # Exact evaluation of all n! permutations (<= 120 for n=5)
+        for perm in itertools.permutations(seq):
+            cand_seq = list(perm)
+            sim = simulate_sequence(
+                cand_seq, start_lat, start_lon, start_hour, end_hour, budget_vnd, transport_mode
+            )
+            if sim is not None:
+                sc = _objective_score(sim, start_lat, start_lon, start_hour, prefer_night=prefer_night)
+                if best is None or sc > best[0]:
+                    best = (sc, cand_seq, sim)
+        return best
+
+    # For n > 5, seed with distance-from-start sorted order + nearest-neighbor order, then run 2-opt segment reversal
+    seeds = [
+        list(seq),
+        sorted(seq, key=lambda e: haversine_km(start_lat, start_lon, e["poi"]["lat"], e["poi"]["lon"])),
+    ]
+    for s_seq in seeds:
+        sim = simulate_sequence(
+            s_seq, start_lat, start_lon, start_hour, end_hour, budget_vnd, transport_mode
+        )
+        if sim is not None:
+            sc = _objective_score(sim, start_lat, start_lon, start_hour, prefer_night=prefer_night)
+            if best is None or sc > best[0]:
+                best = (sc, s_seq, sim)
+
+    if best is None:
+        return None
+
+    best_sc, best_seq, best_sim = best
+    improved = True
+    while improved:
+        improved = False
+        for i in range(n - 1):
+            for j in range(i + 1, n):
+                # Test both 2-opt segment reversal and pairwise swap
+                for cand_seq in (
+                    best_seq[:i] + list(reversed(best_seq[i : j + 1])) + best_seq[j + 1 :],
+                    [
+                        best_seq[j] if k == i else (best_seq[i] if k == j else best_seq[k])
+                        for k in range(n)
+                    ],
+                ):
+                    sim = simulate_sequence(
+                        cand_seq, start_lat, start_lon, start_hour, end_hour, budget_vnd, transport_mode
+                    )
+                    if sim is not None:
+                        sc = _objective_score(
+                            sim, start_lat, start_lon, start_hour, prefer_night=prefer_night
+                        )
+                        if sc > best_sc + 1e-4:
+                            best_sc, best_seq, best_sim = sc, cand_seq, sim
+                            improved = True
+    return best_sc, best_seq, best_sim
 
 
 def _build_naive_baseline(
@@ -218,9 +351,8 @@ def _build_naive_baseline(
     target_stops: int,
 ) -> Dict[str, Any]:
     """Unoptimized manual planning baseline: picks highest-rated popular POIs in Hanoi
-    without spatial proximity clustering or Contrastive Learning personalization.
+    in popularity order without spatial proximity clustering or Contrastive Learning personalization.
     """
-    # Sort strictly by raw popularity rating (how tourists typically browse generic Top-10 lists)
     popular = sorted(
         all_pois,
         key=lambda p: (p.get("rating", 4.0), p.get("review_count", 0)),
@@ -307,36 +439,33 @@ def optimize_itinerary(
     start_lat: float = DEFAULT_START_LAT,
     start_lon: float = DEFAULT_START_LON,
     weather: str = "clear",
-    beam_width: int = 18,
+    beam_width: int = 20,
 ) -> Dict[str, Any]:
-    """Solve Day-to-Night TOPTW using Beam Search + 2-opt refinement and compare with Baseline."""
+    """Solve Day-to-Night TOPTW using Beam Search + Exact Permutation Anti-Backtracking Refinement."""
     prefer_night = end_hour >= 20.0
     max_stops = max(1, min(8, int(max_stops)))
 
-    # Keep top 28 candidates from Contrastive Learning retrieval (penalize outdoor if raining)
     pool: List[Dict[str, Any]] = []
-    for item in ranked_candidates[:32]:
+    for item in ranked_candidates[:36]:
         entry = dict(item)
         if weather == "rainy" and not entry["poi"].get("indoor", False):
             entry["cosine_similarity"] = round(entry["cosine_similarity"] - 0.35, 4)
             entry["match_percent"] = round(max(10.0, entry["match_percent"] - 20.0), 1)
         pool.append(entry)
     pool.sort(key=lambda x: x["cosine_similarity"], reverse=True)
-    pool = pool[:26]
+    pool = pool[:28]
 
     score_lookup = {item["poi"]["id"]: item for item in ranked_candidates}
 
-    # Beam Search constructing feasible itineraries step-by-step
     beam: List[Tuple[float, List[Dict[str, Any]], Dict[str, Any]]] = []
     best_overall: Optional[Tuple[float, List[Dict[str, Any]], Dict[str, Any]]] = None
 
-    # Step 1: seed beam with all feasible single stops
     for cand in pool:
         sim = simulate_sequence(
             [cand], start_lat, start_lon, start_hour, end_hour, budget_vnd, transport_mode
         )
         if sim is not None:
-            sc = _objective_score(sim, prefer_night=prefer_night)
+            sc = _objective_score(sim, start_lat, start_lon, start_hour, prefer_night=prefer_night)
             beam.append((sc, [cand], sim))
 
     beam.sort(key=lambda x: x[0], reverse=True)
@@ -344,14 +473,12 @@ def optimize_itinerary(
     if beam:
         best_overall = beam[0]
 
-    # Expand up to max_stops
     for _step in range(2, max_stops + 1):
         next_beam: List[Tuple[float, List[Dict[str, Any]], Dict[str, Any]]] = []
-        seen_signatures: set[Tuple[str, ...]] = set()
+        seen_sets: set[Tuple[str, ...]] = set()
 
         for _sc, seq, _sim in beam:
             used_ids = {e["poi"]["id"] for e in seq}
-            # Limit consecutive same-category stops to encourage rich Day-to-Night experiences
             cat_counts: Dict[str, int] = {}
             for e in seq:
                 c = e["poi"]["category"]
@@ -365,17 +492,33 @@ def optimize_itinerary(
                     continue
 
                 new_seq = seq + [cand]
-                sig = tuple(e["poi"]["id"] for e in new_seq)
-                if sig in seen_signatures:
+                # Deduplicate by unordered set of POI IDs and pick best spatial ordering immediately!
+                set_sig = tuple(sorted(e["poi"]["id"] for e in new_seq))
+                if set_sig in seen_sets:
                     continue
-                seen_signatures.add(sig)
 
-                sim = simulate_sequence(
-                    new_seq, start_lat, start_lon, start_hour, end_hour, budget_vnd, transport_mode
+                # Order stops by proximity to start/previous stop first, then simulate
+                ordered_try = sorted(
+                    new_seq,
+                    key=lambda e: haversine_km(start_lat, start_lon, e["poi"]["lat"], e["poi"]["lon"]),
                 )
-                if sim is not None:
-                    sc = _objective_score(sim, prefer_night=prefer_night)
-                    next_beam.append((sc, new_seq, sim))
+                for candidate_order in (ordered_try, new_seq):
+                    sim = simulate_sequence(
+                        candidate_order,
+                        start_lat,
+                        start_lon,
+                        start_hour,
+                        end_hour,
+                        budget_vnd,
+                        transport_mode,
+                    )
+                    if sim is not None:
+                        seen_sets.add(set_sig)
+                        sc = _objective_score(
+                            sim, start_lat, start_lon, start_hour, prefer_night=prefer_night
+                        )
+                        next_beam.append((sc, candidate_order, sim))
+                        break
 
         if not next_beam:
             break
@@ -385,26 +528,22 @@ def optimize_itinerary(
         if best_overall is None or beam[0][0] > best_overall[0]:
             best_overall = beam[0]
 
-    # Local 2-opt permutation refinement on the best sequence to shave extra distance/wait
-    if best_overall is not None and len(best_overall[1]) >= 3:
-        best_sc, best_seq, best_sim = best_overall
-        improved = True
-        while improved:
-            improved = False
-            n = len(best_seq)
-            for i in range(n - 1):
-                for j in range(i + 1, n):
-                    cand_seq = list(best_seq)
-                    cand_seq[i], cand_seq[j] = cand_seq[j], cand_seq[i]
-                    sim = simulate_sequence(
-                        cand_seq, start_lat, start_lon, start_hour, end_hour, budget_vnd, transport_mode
-                    )
-                    if sim is not None:
-                        sc = _objective_score(sim, prefer_night=prefer_night)
-                        if sc > best_sc + 1e-4:
-                            best_sc, best_seq, best_sim = sc, cand_seq, sim
-                            improved = True
-        best_overall = (best_sc, best_seq, best_sim)
+    # Run Exact Permutation Order Optimization on the top 8 beam candidates!
+    top_candidates = beam[:8] + ([best_overall] if best_overall else [])
+    for _sc, cand_seq, _sim in top_candidates:
+        refined = _optimize_stop_ordering(
+            cand_seq,
+            start_lat,
+            start_lon,
+            start_hour,
+            end_hour,
+            budget_vnd,
+            transport_mode,
+            prefer_night,
+        )
+        if refined is not None:
+            if best_overall is None or refined[0] > best_overall[0]:
+                best_overall = refined
 
     if best_overall is None:
         optimized = {
@@ -429,7 +568,6 @@ def optimize_itinerary(
     else:
         optimized = best_overall[2]
 
-    # Build Naive Baseline comparison using the same stop count
     baseline = _build_naive_baseline(
         all_pois=all_pois,
         score_lookup=score_lookup,

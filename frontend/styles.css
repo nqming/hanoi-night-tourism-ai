@@ -91,10 +91,14 @@ body {
 
 /* Map container & custom markers */
 #hanoi-map {
-  height: 490px;
+  height: 510px;
   width: 100%;
   border-radius: 0.9rem;
   z-index: 1;
+}
+
+#hanoi-map.picking-location {
+  cursor: crosshair !important;
 }
 
 .route-marker-icon {
@@ -104,27 +108,26 @@ body {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #f59e0b, #ea580c);
   color: #090d16;
   font-weight: 800;
   font-size: 13px;
-  border: 2.5px solid #fef3c7;
-  box-shadow: 0 0 14px rgba(245, 158, 11, 0.8);
+  border: 2.5px solid #ffffff;
+  box-shadow: 0 0 14px rgba(0, 0, 0, 0.75);
 }
 
 .start-marker-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #22d3ee, #0284c7);
+  background: linear-gradient(135deg, #38bdf8, #0284c7);
   color: #090d16;
-  font-weight: 800;
+  font-weight: 900;
   font-size: 13px;
-  border: 2.5px solid #e0f2fe;
-  box-shadow: 0 0 14px rgba(34, 211, 238, 0.8);
+  border: 2.5px solid #ffffff;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.9);
 }
 
 .leaflet-popup-content-wrapper {
@@ -136,6 +139,26 @@ body {
 
 .leaflet-popup-tip {
   background: #0f172a;
+}
+
+/* Voice mic pulsing */
+@keyframes micPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(244, 63, 94, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(244, 63, 94, 0);
+  }
+}
+
+.mic-recording {
+  background: linear-gradient(135deg, #f43f5e, #e11d48) !important;
+  color: #fff !important;
+  border-color: #fda4af !important;
+  animation: micPulse 1.4s infinite;
 }
 
 /* Timeline connector */

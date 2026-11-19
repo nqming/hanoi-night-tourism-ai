@@ -144,17 +144,18 @@ PERSONAS: List[Dict[str, Any]] = [
     {
         "name": "midnight_sleepless",
         "categories": ["night_food", "nightlife_cafe", "walking_market"],
-        "time_range": (22.0, 28.0),
-        "budget_range": (100000, 450000),
+        "time_range": (22.5, 28.0),
+        "budget_range": (40000, 400000),
         "companions": ["friends", "solo", "couple"],
         "weathers": ["clear", "cool"],
         "queries": [
             "khám phá Hà Nội sau nửa đêm chợ hoa Quảng Bá phở gánh hàng Chiếu",
             "địa điểm mở cửa xuyên đêm từ 23h đến sáng Tống Duy Tân Tạ Hiện",
             "trải nghiệm thành phố không ngủ ăn khuya và chụp ảnh chợ hoa đêm",
+            "sau 0h đêm đi ăn gì với tài chính 50k cháo sườn bánh mì phở đêm",
             "midnight Hanoi tour Quang Ba flower market 2 AM pho and late night street",
             "open past midnight sleepless Hanoi late night food and bars",
-            "đi đâu chơi lúc 1 giờ sáng ở Hà Nội ăn đêm cà phê khuya",
+            "đi đâu chơi lúc 1 giờ sáng ở Hà Nội ăn đêm cà phê khuya dưới 50k",
         ],
     },
     {
@@ -282,7 +283,7 @@ def compute_compatibility_score(ctx: Dict[str, Any], poi: Dict[str, Any]) -> Tup
     return score, violations
 
 
-def generate_dataset(num_queries: int = 1600, seed: int = 42) -> Dict[str, Any]:
+def generate_dataset(num_queries: int = 2000, seed: int = 42) -> Dict[str, Any]:
     rng = random.Random(seed)
     with POIS_PATH.open("r", encoding="utf-8") as f:
         pois: List[Dict[str, Any]] = json.load(f)

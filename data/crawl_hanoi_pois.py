@@ -47,7 +47,7 @@ OVERPASS_ENDPOINTS = [
 ]
 
 # Central Hanoi bounding box covering Hoan Kiem, Ba Dinh, Tay Ho, Dong Da, Hai Ba Trung, Cau Giay
-HANOI_BBOX = (20.995, 105.790, 21.078, 105.875)
+HANOI_BBOX = (20.990, 105.780, 21.085, 105.875)
 
 # Approximate centroids for district inference when OSM addr:district is missing
 DISTRICT_CENTERS: List[Tuple[str, float, float]] = [
@@ -138,7 +138,7 @@ def map_osm_category(tags: Dict[str, str], name: str) -> Optional[str]:
 
     if amenity in ("bar", "pub", "nightclub", "biergarten"):
         return "nightlife_cafe"
-    if amenity == "cafe":
+    if amenity in ("cafe", "ice_cream"):
         return "nightlife_cafe"
     if amenity in ("theatre", "arts_centre", "cinema") or tourism == "gallery":
         return "culture_art"
@@ -146,7 +146,7 @@ def map_osm_category(tags: Dict[str, str], name: str) -> Optional[str]:
         return "walking_market"
     if tourism == "viewpoint" or leisure == "park":
         return "scenic_view"
-    if amenity == "restaurant":
+    if amenity in ("restaurant", "fast_food"):
         return "night_food"
     if tourism == "museum":
         return "daytime_heritage"
@@ -218,17 +218,18 @@ def query_overpass_hanoi() -> List[Dict[str, Any]]:
     """Query OpenStreetMap Overpass API for real Hanoi tourism & night-economy POIs."""
     s, w, n, e = HANOI_BBOX
     query = f"""
-    [out:json][timeout:35];
+    [out:json][timeout:40];
     (
-      node["tourism"~"^(attraction|museum|viewpoint|gallery)$"]["name"]({s},{w},{n},{e});
+      node["tourism"~"^(attraction|museum|viewpoint|gallery|artwork)$"]["name"]({s},{w},{n},{e});
       way["tourism"~"^(attraction|museum|viewpoint|gallery)$"]["name"]({s},{w},{n},{e});
-      node["amenity"~"^(theatre|arts_centre|bar|pub|nightclub|marketplace)$"]["name"]({s},{w},{n},{e});
+      node["amenity"~"^(theatre|arts_centre|cinema|bar|pub|nightclub|biergarten|marketplace)$"]["name"]({s},{w},{n},{e});
       way["amenity"~"^(theatre|arts_centre|marketplace)$"]["name"]({s},{w},{n},{e});
-      node["historic"~"^(monument|memorial|citadel)$"]["name"]({s},{w},{n},{e});
-      node["amenity"~"^(restaurant|cafe)$"]["name"]["opening_hours"]({s},{w},{n},{e});
-      node["amenity"="restaurant"]["name"]["cuisine"]({s},{w},{n},{e});
+      node["historic"~"^(monument|memorial|citadel|castle|archaeological_site)$"]["name"]({s},{w},{n},{e});
+      way["leisure"="park"]["name"]({s},{w},{n},{e});
+      node["amenity"~"^(restaurant|cafe|fast_food|ice_cream)$"]["name"]["opening_hours"]({s},{w},{n},{e});
+      node["amenity"~"^(restaurant|cafe)$"]["name"]["cuisine"]({s},{w},{n},{e});
     );
-    out center 600;
+    out center 950;
     """
     for endpoint in OVERPASS_ENDPOINTS:
         try:
@@ -288,22 +289,27 @@ def estimate_osm_poi_fields(
     # Realistic pricing in VND by category & venue hints
     base_cost = defaults["cost"]
     if category == "night_food":
-        if any(k in cuisine.lower() for k in ("vietnamese", "noodle", "pho", "bun")):
-            base_cost = 65000 + (seed_val % 5) * 15000
+        if any(k in name.lower() for k in ("phở", "bún", "miến", "bánh mì", "xôi", "cháo", "chè", "bánh cuốn")):
+            base_cost = 35000 + (seed_val % 4) * 5000
+        elif any(k in cuisine.lower() for k in ("vietnamese", "noodle", "pho", "bun", "street")):
+            base_cost = 45000 + (seed_val % 5) * 10000
         elif any(k in cuisine.lower() for k in ("french", "japanese", "steak", "fine")):
             base_cost = 250000 + (seed_val % 4) * 50000
         else:
-            base_cost = 90000 + (seed_val % 6) * 20000
+            base_cost = 75000 + (seed_val % 6) * 20000
+        if not tags.get("opening_hours") and seed_val % 4 == 0:
+            close_h = 25.5  # Some food venues stay open past midnight (01:30)
+            is_night = True
     elif category == "nightlife_cafe":
-        if tags.get("amenity") in ("bar", "pub", "nightclub"):
-            base_cost = 180000 + (seed_val % 5) * 35000
+        if tags.get("amenity") in ("bar", "pub", "nightclub", "biergarten"):
+            base_cost = 150000 + (seed_val % 5) * 35000
             if not tags.get("opening_hours"):
-                open_h, close_h = 17.5, 25.5
+                open_h, close_h = 17.5, 26.0
                 is_night = True
         else:
-            base_cost = 55000 + (seed_val % 4) * 15000
+            base_cost = 40000 + (seed_val % 4) * 10000
             if not tags.get("opening_hours"):
-                open_h, close_h = 7.5, 22.5
+                open_h, close_h = 7.5, (25.0 if seed_val % 5 == 0 else 22.5)
                 is_night = True
 
     rating = round(4.1 + (seed_val % 8) * 0.1, 1)
@@ -393,7 +399,7 @@ def estimate_osm_poi_fields(
 
 
 def merge_and_balance_pois(
-    curated: List[Dict[str, Any]], osm_elements: List[Dict[str, Any]], max_osm_per_category: int = 35
+    curated: List[Dict[str, Any]], osm_elements: List[Dict[str, Any]], max_osm_per_category: int = 55
 ) -> List[Dict[str, Any]]:
     """Deduplicate OSM records against curated POIs and keep a clean balanced dataset."""
     final_pois = list(curated)

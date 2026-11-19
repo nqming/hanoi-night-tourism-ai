@@ -38,9 +38,9 @@ class TestDataIntegrity(unittest.TestCase):
         self.assertTrue(pois_path.exists(), "hanoi_pois.json must exist")
         with pois_path.open("r", encoding="utf-8") as f:
             pois = json.load(f)
-        self.assertGreaterEqual(len(pois), 40)
+        self.assertGreaterEqual(len(pois), 200)
         night_count = sum(1 for p in pois if p.get("is_night_economy"))
-        self.assertGreater(night_count, 30)
+        self.assertGreater(night_count, 180)
         for p in pois:
             self.assertIn("id", p)
             self.assertIn("name", p)
@@ -133,6 +133,43 @@ class TestTOPTWOptimizer(unittest.TestCase):
             self.assertGreater(stop["departure_hour"], stop["arrival_hour"])
             prev_dep = stop["departure_hour"]
 
+    def test_no_backtracking_to_start_location(self) -> None:
+        """If starting right at Hoan Kiem Lake, any Hoan Kiem Lake stop must be visited
+        BEFORE moving outward to Opera House / Ba Dinh (never leave Hoan Kiem and loop back).
+        """
+        from ml.optimizer import haversine_km
+
+        pois_path = ROOT_DIR / "data" / "processed" / "hanoi_pois.json"
+        with pois_path.open("r", encoding="utf-8") as f:
+            pois = json.load(f)
+
+        by_id = {p["id"]: p for p in pois}
+        # Deliberately feed candidates in reverse distance order (Opera House first, Hoan Kiem second)
+        candidates = [
+            {"poi": by_id["curated_006"], "cosine_similarity": 0.72, "match_percent": 90.0, "reasons": []},  # Nhà hát Lớn (0.98 km)
+            {"poi": by_id["curated_007"], "cosine_similarity": 0.72, "match_percent": 90.0, "reasons": []},  # Phố đi bộ Hồ Gươm (0.28 km)
+            {"poi": by_id["curated_005"], "cosine_similarity": 0.71, "match_percent": 89.0, "reasons": []},  # Múa rối Thăng Long (0.15 km)
+        ]
+        start_lat, start_lon = 21.0313, 105.8520
+        res = optimize_itinerary(
+            ranked_candidates=candidates,
+            all_pois=pois,
+            start_hour=18.0,
+            end_hour=23.0,
+            budget_vnd=800000,
+            max_stops=3,
+            start_lat=start_lat,
+            start_lon=start_lon,
+        )
+        stops = res["optimized"]["stops"]
+        self.assertEqual(len(stops), 3)
+        dists = [
+            haversine_km(start_lat, start_lon, s["poi"]["lat"], s["poi"]["lon"]) for s in stops
+        ]
+        # The stop farthest from Hoan Kiem (Opera House ~0.98km) must come AFTER the stops right at Hoan Kiem!
+        self.assertLess(dists[0], dists[-1])
+        self.assertEqual(stops[-1]["poi"]["id"], "curated_006")
+
 
 class TestFastAPIEndpoints(unittest.TestCase):
     def test_health_and_frontend(self) -> None:
@@ -186,6 +223,23 @@ class TestFastAPIEndpoints(unittest.TestCase):
         r_vi = _asgi_request("POST", "/api/chat", json={"message": "Tối nay ăn đêm ở đâu ngon tại Hoàn Kiếm?"})
         self.assertEqual(r_vi.status_code, 200)
         self.assertEqual(r_vi.json()["language"], "vi")
+
+        # Strict midnight + 50k food scenario reported by user
+        r_midnight = _asgi_request(
+            "POST",
+            "/api/chat",
+            json={"message": "sau 0h đêm sau 0h đêm thì đi ăn gì với tài chính 50k"},
+        )
+        self.assertEqual(r_midnight.status_code, 200)
+        m_body = r_midnight.json()
+        self.assertEqual(m_body["parsed_context"]["start_hour"], 24.0)
+        self.assertEqual(m_body["parsed_context"]["strict_max_cost_vnd"], 50000)
+        self.assertIn("00:00 (+1)", m_body["reply"])
+        self.assertGreaterEqual(len(m_body["retrieved_pois"]), 2)
+        for item in m_body["retrieved_pois"]:
+            p = item["poi"]
+            self.assertEqual(p["category"], "night_food", f"Non-food POI leaked: {p['name']}")
+            self.assertLessEqual(p["avg_cost_vnd"], 50000, f"Over-budget POI leaked: {p['name']}")
 
         r_en = _asgi_request("POST", "/api/chat", json={"message": "Best night street food and jazz in Hanoi"})
         self.assertEqual(r_en.status_code, 200)
