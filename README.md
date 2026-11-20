@@ -230,7 +230,6 @@ hanoi-night-tourism-ai/
 ## 👨‍💻 Author & Academic Attribution
 
 - **Author:** Nguyễn Quang Minh ([@nqming](https://github.com/nqming))
-- **Class / Student ID:** `65TTNT` — `2351260672`
 - **Research Topic:** *Bài toán số 15 — Phát triển du lịch thông minh và kinh tế đêm tại Hà Nội* (Smart Tourism & Night Economy Development in Hanoi)
 
 <div align="center">
