@@ -99,7 +99,7 @@ $$\mathcal{L}_{\text{total}} = 0.65\,\mathcal{L}_{\text{c2p}} + 0.35\,\mathcal{L
 
 ### 2. Anti-Backtracking Day-to-Night TOPTW Objective
 
-Over the Top-$K$ Contrastive candidates, our solver finds an ordered itinerary $\mathcal{P} = (p_1, \dots, p_m)$ maximizing:
+Over the $\text{Top-}K$ Contrastive candidates, our solver finds an ordered itinerary $\mathcal{P} = (p_1, \dots, p_m)$ maximizing:
 
 $$U(\mathcal{P}) = \sum_{p \in \mathcal{P}} \text{sim}(\mathbf{u}, \mathbf{v}_p) + \alpha\,\text{Diversity}(\mathcal{P}) + \beta\,\text{NightStops}(\mathcal{P}) + \gamma\,\mathbb{I}_{\text{near\_start}}(p_1) - \eta_1\,\text{Dist}(\mathcal{P}) - \eta_2\,\text{Wait}(\mathcal{P}) - \eta_3\,\text{Backtrack}(\mathcal{P})$$
 
