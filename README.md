@@ -99,9 +99,11 @@ $$\mathcal{L}_{\text{total}} = 0.65\,\mathcal{L}_{\text{c2p}} + 0.35\,\mathcal{L
 
 ### 2. Anti-Backtracking Day-to-Night TOPTW Objective
 
-Over the $\text{Top-}K$ Contrastive candidates, our solver finds an ordered itinerary $\mathcal{P} = (p_1, \dots, p_m)$ maximizing:
+Over the Top-K Contrastive candidates, our solver finds an ordered itinerary $\mathcal{P} = (p_1, \dots, p_m)$ maximizing:
 
-$$U(\mathcal{P}) = \sum_{p \in \mathcal{P}} \text{sim}(\mathbf{u}, \mathbf{v}_p) + \alpha\,\text{Diversity}(\mathcal{P}) + \beta\,\text{NightStops}(\mathcal{P}) + \gamma\,\mathbb{I}_{\text{near\_start}}(p_1) - \eta_1\,\text{Dist}(\mathcal{P}) - \eta_2\,\text{Wait}(\mathcal{P}) - \eta_3\,\text{Backtrack}(\mathcal{P})$$
+$$
+U(\mathcal{P}) = \sum_{p \in \mathcal{P}} \text{sim}(\mathbf{u}, \mathbf{v}_p) + \alpha\,\text{Diversity}(\mathcal{P}) + \beta\,\text{NightStops}(\mathcal{P}) + \gamma\,\mathbb{I}_{\text{near-start}}(p_1) - \eta_1\,\text{Dist}(\mathcal{P}) - \eta_2\,\text{Wait}(\mathcal{P}) - \eta_3\,\text{Backtrack}(\mathcal{P})
+$$
 
 subject to strict opening-hour feasibility across overnight windows ($t \in [6.0, 30.0]$ where $24.0 = 00\text{:}00\text{ (+1)}$) and total budget $\sum_{p \in \mathcal{P}} \text{cost}(p) \le B_{\max}$.
 
