@@ -231,7 +231,3 @@ hanoi-night-tourism-ai/
 
 - **Author:** Nguyễn Quang Minh ([@nqming](https://github.com/nqming))
 - **Research Topic:** *Bài toán số 15 — Phát triển du lịch thông minh và kinh tế đêm tại Hà Nội* (Smart Tourism & Night Economy Development in Hanoi)
-
-<div align="center">
-  <sub>If you find this project useful for smart-city tourism, contrastive recommendation, or TOPTW itinerary optimization, consider giving it a ⭐ on GitHub!</sub>
-</div>
