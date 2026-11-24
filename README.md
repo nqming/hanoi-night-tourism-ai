@@ -129,7 +129,7 @@ Evaluated on a held-out test split of **300 unseen user-context queries** across
 
 ## 🚀 Quick Start
 
-### Option 1: Docker Compose (Recommended — 1 Command)
+### Option 1: Docker Compose (Recommended)
 
 ```bash
 git clone https://github.com/nqming/hanoi-night-tourism-ai.git
