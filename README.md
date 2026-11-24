@@ -17,6 +17,10 @@
 </p>
 
 <p>
+  <strong>🇬🇧 English</strong> &nbsp;|&nbsp; <a href="README.vi.md">🇻🇳 Tiếng Việt</a>
+</p>
+
+<p>
   <a href="#-overview">Overview</a> •
   <a href="#-key-features">Key Features</a> •
   <a href="#%EF%B8%8F-system-architecture">Architecture</a> •
