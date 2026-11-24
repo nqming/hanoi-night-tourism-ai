@@ -200,9 +200,5 @@ Dự án tích hợp sẵn pipeline **GitHub Actions CI/CD** tại `.github/work
 ## 👨‍💻 Tác giả & Thông tin Học thuật
 
 - **Tác giả:** Nguyễn Quang Minh ([@nqming](https://github.com/nqming))
-- **Lớp / Mã sinh viên:** `65TTNT` — `2351260672`
 - **Đề tài nghiên cứu:** *Bài toán số 15 — Phát triển du lịch thông minh và kinh tế đêm tại Hà Nội*
 
-<div align="center">
-  <sub>Nếu bạn thấy dự án hữu ích cho lĩnh vực du lịch thông minh, hệ gợi ý Contrastive Learning hoặc tối ưu lộ trình TOPTW, hãy tặng repo một ⭐ trên GitHub nhé!</sub>
-</div>
