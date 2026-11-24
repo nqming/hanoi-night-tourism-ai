@@ -93,7 +93,7 @@ flowchart LR
 
 ### 1. Two-Tower Contrastive Learning (Dual-Encoder InfoNCE)
 
-Given a batch of $B$ triplets $\{(\mathbf{x}_i^{\text{ctx}}, \mathbf{x}_i^{+}, \mathbf{x}_i^{-})\}_{i=1}^B$ where $\mathbf{x}_i^{-}$ is an explicit **Hard Negative** (a venue that closes before the requested night window, exceeds budget, mismatches category, or is outdoors during rain), the Context Tower $f_\theta$ and POI Tower $g_\phi$ output unit-norm embeddings $\mathbf{u}_i, \mathbf{v}_i^+, \mathbf{v}_i^- \in \mathbb{S}^{63}$.
+Given a batch of $B$ triplets $`\{(\mathbf{x}_i^{\text{ctx}}, \mathbf{x}_i^{+}, \mathbf{x}_i^{-})\}_{i=1}^B`$ where $`\mathbf{x}_i^{-}`$ is an explicit **Hard Negative** (a venue that closes before the requested night window, exceeds budget, mismatches category, or is outdoors during rain), the Context Tower $`f_\theta`$ and POI Tower $`g_\phi`$ output unit-norm embeddings $`\mathbf{u}_i, \mathbf{v}_i^+, \mathbf{v}_i^- \in \mathbb{S}^{63}`$.
 
 We optimize a **Symmetric InfoNCE Loss** with learnable temperature $\tau$ plus an explicit **Hard-Negative Margin Penalty**:
 

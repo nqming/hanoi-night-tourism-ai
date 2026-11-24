@@ -93,7 +93,7 @@ flowchart LR
 
 ### 1. Học tương phản Hai nhánh (Two-Tower Contrastive Learning)
 
-Với mỗi batch gồm $B$ bộ ba $\{(\mathbf{x}_i^{\text{ctx}}, \mathbf{x}_i^{+}, \mathbf{x}_i^{-})\}_{i=1}^B$, trong đó $\mathbf{x}_i^{-}$ là mẫu **Hard Negative** (điểm đóng cửa trước khung giờ đêm yêu cầu, vượt ngân sách, sai loại hình hoặc ngoài trời khi trời mưa), hai nhánh Context Tower $f_\theta$ và POI Tower $g_\phi$ tạo ra các vector chuẩn hóa đơn vị $\mathbf{u}_i, \mathbf{v}_i^+, \mathbf{v}_i^- \in \mathbb{S}^{63}$.
+Với mỗi batch gồm $B$ bộ ba $`\{(\mathbf{x}_i^{\text{ctx}}, \mathbf{x}_i^{+}, \mathbf{x}_i^{-})\}_{i=1}^B`$, trong đó $`\mathbf{x}_i^{-}`$ là mẫu **Hard Negative** (điểm đóng cửa trước khung giờ đêm yêu cầu, vượt ngân sách, sai loại hình hoặc ngoài trời khi trời mưa), hai nhánh Context Tower $`f_\theta`$ và POI Tower $`g_\phi`$ tạo ra các vector chuẩn hóa đơn vị $`\mathbf{u}_i, \mathbf{v}_i^+, \mathbf{v}_i^- \in \mathbb{S}^{63}`$.
 
 Mô hình tối ưu hàm mất mát **Symmetric InfoNCE** (với nhiệt độ học được $\tau$) kết hợp **Hard-Negative Margin Penalty**:
 
