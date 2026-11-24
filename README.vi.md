@@ -133,7 +133,7 @@ thỏa mãn chặt chẽ khung giờ mở cửa xuyên đêm ($t \in [6.0, 30.0]
 
 ## 🚀 Khởi chạy nhanh
 
-### Cách 1: Dùng Docker Compose (Khuyên dùng — 1 lệnh duy nhất)
+### Cách 1: Dùng Docker Compose (Khuyên dùng)
 
 ```bash
 git clone https://github.com/nqming/hanoi-night-tourism-ai.git
